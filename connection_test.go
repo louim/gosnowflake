@@ -1116,3 +1116,53 @@ func TestGetCRLTransport(t *testing.T) {
 		assertEqualE(t, transport.MaxIdleConns, defaultTransportConfigs.forTransportType(transportTypeCRL).MaxIdleConns)
 	})
 }
+
+func TestUnitStatementTypeIDChan(t *testing.T) {
+	const showStatementTypeID = int64(0x4400)
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
+		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
+		_ UUID, _ *Config) (*execResponse, error) {
+		return &execResponse{
+			Data:    execResponseData{StatementTypeID: showStatementTypeID},
+			Code:    "0",
+			Success: true,
+		}, nil
+	}
+	newConn := func() *snowflakeConn {
+		return &snowflakeConn{
+			cfg:  &Config{},
+			rest: &snowflakeRestful{FuncPostQuery: postQueryMock},
+		}
+	}
+
+	t.Run("buffered channel receives the ID", func(t *testing.T) {
+		ch := make(chan int64, 1)
+		ctx := WithStatementTypeIDChan(context.Background(), ch)
+		if _, err := newConn().exec(ctx, "SHOW TABLES", false /* noResult */, false, /* isInternal */
+			true /* describeOnly */, nil); err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		select {
+		case id := <-ch:
+			assertEqualE(t, id, showStatementTypeID)
+		default:
+			t.Fatal("no statement type ID was sent")
+		}
+	})
+
+	t.Run("channel without room does not block", func(t *testing.T) {
+		ctx := WithStatementTypeIDChan(context.Background(), make(chan int64))
+		done := make(chan error, 1)
+		go func() {
+			_, err := newConn().exec(ctx, "SHOW TABLES", false /* noResult */, false, /* isInternal */
+				true /* describeOnly */, nil)
+			done <- err
+		}()
+		select {
+		case err := <-done:
+			assertNilF(t, err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("exec blocked on the statement type ID channel")
+		}
+	})
+}

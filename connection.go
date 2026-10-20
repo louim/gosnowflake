@@ -186,6 +186,12 @@ func (sc *snowflakeConn) exec(
 		err = exceptionTelemetry(populateErrorFields(code, data), sc)
 		return nil, err
 	}
+	if c, ok := ctx.Value(statementTypeIDChannel).(chan<- int64); ok {
+		select {
+		case c <- data.Data.StatementTypeID:
+		default:
+		}
+	}
 
 	// handle PUT/GET commands
 	fileTransferChan := make(chan error, 1)

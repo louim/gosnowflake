@@ -27,6 +27,7 @@ const (
 	multiStatementCount    ContextKey = "MULTI_STATEMENT_COUNT"
 	asyncMode              ContextKey = "ASYNC_MODE_QUERY"
 	queryIDChannel         ContextKey = "QUERY_ID_CHANNEL"
+	statementTypeIDChannel ContextKey = "STATEMENT_TYPE_ID_CHANNEL"
 	snowflakeRequestIDKey  ContextKey = "SNOWFLAKE_REQUEST_ID"
 	fetchResultByID        ContextKey = "SF_FETCH_RESULT_BY_ID"
 	filePutStream          ContextKey = "STREAMING_PUT_FILE"
@@ -63,6 +64,14 @@ func WithAsyncMode(ctx context.Context) context.Context {
 // WithQueryIDChan returns a context that contains the channel to receive the query ID
 func WithQueryIDChan(ctx context.Context, c chan<- string) context.Context {
 	return context.WithValue(ctx, queryIDChannel, c)
+}
+
+// WithStatementTypeIDChan returns a context that receives the statement type
+// ID Snowflake reports for each query run with it, including describe only
+// queries. The driver does not block on c: give it room for one value per
+// query, or values are dropped.
+func WithStatementTypeIDChan(ctx context.Context, c chan<- int64) context.Context {
+	return context.WithValue(ctx, statementTypeIDChannel, c)
 }
 
 // WithRequestID returns a new context with the specified snowflake request id
