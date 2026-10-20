@@ -195,7 +195,7 @@ func (sc *snowflakeConn) exec(
 
 	// handle PUT/GET commands
 	fileTransferChan := make(chan error, 1)
-	if isFileTransfer(query) && !isSkipFileTransfer(ctx) {
+	if isFileTransfer(query) && !isSkipFileTransfer(ctx) && !describeOnly {
 		go func() {
 			data, err = sc.processFileTransfer(ctx, data, query, isInternal)
 			fileTransferChan <- err

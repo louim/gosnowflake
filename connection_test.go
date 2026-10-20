@@ -1166,3 +1166,32 @@ func TestUnitStatementTypeIDChan(t *testing.T) {
 		}
 	})
 }
+
+func TestUnitDescribeOnlySkipsFileTransfer(t *testing.T) {
+	postQueryMock := func(_ context.Context, _ *snowflakeRestful,
+		_ *url.Values, _ map[string]string, _ []byte, _ time.Duration,
+		_ UUID, _ *Config) (*execResponse, error) {
+		return &execResponse{Code: "0", Success: true}, nil
+	}
+	newConn := func() *snowflakeConn {
+		return &snowflakeConn{
+			cfg:  &Config{},
+			rest: &snowflakeRestful{FuncPostQuery: postQueryMock},
+		}
+	}
+	query := "PUT file:///nonexistent/a.csv @~/x"
+
+	t.Run("describe only skips the transfer", func(t *testing.T) {
+		_, err := newConn().exec(context.Background(), query, false /* noResult */, false, /* isInternal */
+			true /* describeOnly */, nil)
+		assertNilF(t, err)
+	})
+
+	// Shows the transfer runs, and fails on the missing file, when the
+	// query is not describe only, so the case above did skip it.
+	t.Run("a normal query runs the transfer", func(t *testing.T) {
+		_, err := newConn().exec(context.Background(), query, false /* noResult */, false, /* isInternal */
+			false /* describeOnly */, nil)
+		assertNotNilF(t, err)
+	})
+}
